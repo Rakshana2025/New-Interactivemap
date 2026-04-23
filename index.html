@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M&A Insurance Agency Map — Florida</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<!-- Replace your current Leaflet imports with this -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --buyer-hm: #1a6b4a;
+    --buyer-hm-light: #d4f0e3;
+    --buyer-ef: #1e4d8c;
+    --buyer-ef-light: #d6e7fb;
+    --buyer-pa: #7a3e9c;
+    --buyer-pa-light: #ecdff7;
+    --seller-loi: #c0392b;
+    --seller-loi-light: #fde8e6;
+    --seller-pre: #d97706;
+    --seller-pre-light: #fef3c7;
+    --bg: #f5f3ef;
+    --panel: #ffffff;
+    --ink: #1a1917;
+    --muted: #6b6760;
+    --border: #e0ddd8;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header {
+    padding: 10px 20px;
+    background: var(--ink);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 18px; letter-spacing: 0.01em; }
+  header p { font-size: 11px; color: #a0998f; font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .legend {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px; font-size: 11px; color: #ccc; cursor: pointer; transition: opacity 0.2s; user-select: none;
+  }
+  .legend-item.muted { opacity: 0.35; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* MAP */
+  #map-wrap { flex: 1; position: relative; background: #e8e5e0; }
+  #map { width: 100%; height: 100%; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 320px; flex-shrink: 0; background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .tab-btn {
+    flex: 1; padding: 10px 8px; font-size: 12px; font-weight: 500; cursor: pointer;
+    border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent;
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .tab-btn.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+  .tab-content { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .tab-content.active { display: flex; }
+
+  .search-box { padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .search-box input {
+    width: 100%; padding: 7px 10px; font-size: 12px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); font-family: 'DM Sans', sans-serif; outline: none;
+  }
+  .search-box input:focus { border-color: #999; }
+
+  .list { overflow-y: auto; flex: 1; }
+  .list-item {
+    padding: 11px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background 0.1s; position: relative;
+  }
+  .list-item:hover { background: #faf9f7; }
+  .list-item.selected { background: #f0ede8; }
+  .list-item .name { font-size: 13px; font-weight: 500; }
+  .list-item .city { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .list-item .tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 500; font-family: 'DM Mono', monospace;
+  }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    position: absolute; bottom: 16px; left: 16px; width: 300px;
+    background: white; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+    padding: 16px; z-index: 100; border: 1px solid var(--border);
+    animation: slideUp 0.2s ease;
+    max-height: 60vh; overflow-y: auto;
+  }
+  @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .detail-panel .close-btn {
+    position: absolute; top: 10px; right: 12px; background: none; border: none;
+    font-size: 16px; cursor: pointer; color: var(--muted); line-height: 1;
+  }
+  .detail-panel h3 { font-size: 15px; font-weight: 600; padding-right: 20px; line-height: 1.3; }
+  .detail-panel .sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 3px; }
+  .detail-panel .divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+  .detail-row { display: flex; gap: 8px; margin-bottom: 7px; font-size: 12px; }
+  .detail-label { color: var(--muted); min-width: 90px; flex-shrink: 0; }
+  .detail-value { font-weight: 500; flex: 1; }
+
+  /* MATCH PANEL */
+  .match-header { padding: 10px 14px; background: #f5f3ef; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .match-section-title { padding: 8px 14px 4px; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+  /* FILTER BAR */
+  .filter-bar { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+  .filter-chip {
+    font-size: 11px; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--border);
+    cursor: pointer; transition: all 0.15s; background: white; font-family: 'DM Mono', monospace;
+    color: var(--muted);
+  }
+  .filter-chip.active { border-color: var(--ink); background: var(--ink); color: white; }
+
+  .stat-bar { padding: 8px 20px; background: var(--ink); display: flex; gap: 20px; flex-shrink: 0; border-top: 1px solid #333; }
+  .stat { font-size: 11px; color: #888; font-family: 'DM Mono', monospace; }
+  .stat span { color: white; font-weight: 500; }
+
+  .empty-state { padding: 30px 14px; text-align: center; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>M&A Agency Map — Florida</h1>
+    <p>Insurance Agency Buyer &amp; Seller Intelligence</p>
+  </div>
+  <div class="legend">
+    <div class="legend-item" data-filter="Highly Motivated Buyer" onclick="toggleFilter(this)">
+      <div class="legend-dot" style="background:#1a6b4a"></div> HM Buyer
+    </div>
+    <div class="legend-item" data-filter="Existing Franchisee" onclick="toggleFilter(this)">
+      <div class="legend-dot" style="background:#1e4d8c"></div> Franchisee
+    </div>
+    <div class="legend-item" data-filter="Platform Agency" onclick="toggleFilter(this)">
+      <div class="legend-dot" style="background:#7a3e9c"></div> Platform
+    </div>
+    <div class="legend-item" data-filter="LOI Signed" onclick="toggleFilter(this)">
+      <div class="legend-dot" style="background:#c0392b"></div> Seller LOI
+    </div>
+    <div class="legend-item" data-filter="Pre LOI" onclick="toggleFilter(this)">
+      <div class="legend-dot" style="background:#d97706"></div> Seller Pre-LOI
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="detail-panel" class="detail-panel" style="display:none">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+      <div id="detail-content"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('buyers', this)">Buyers (52)</button>
+      <button class="tab-btn" onclick="switchTab('sellers', this)">Sellers (7)</button>
+      <button class="tab-btn" onclick="switchTab('match', this)">Match</button>
+    </div>
+
+    <!-- BUYERS TAB -->
+    <div class="tab-content active" id="tab-buyers">
+      <div class="search-box"><input type="text" placeholder="Search buyers..." oninput="filterList('buyers', this.value)"></div>
+      <div class="filter-bar">
+        <div class="filter-chip active" data-type="all" onclick="filterByType('buyers','all',this)">All</div>
+        <div class="filter-chip" data-type="Highly Motivated Buyer" onclick="filterByType('buyers','Highly Motivated Buyer',this)">HM Buyer</div>
+        <div class="filter-chip" data-type="Existing Franchisee" onclick="filterByType('buyers','Existing Franchisee',this)">Franchisee</div>
+        <div class="filter-chip" data-type="Platform Agency" onclick="filterByType('buyers','Platform Agency',this)">Platform</div>
+      </div>
+      <div class="list" id="buyer-list"></div>
+    </div>
+
+    <!-- SELLERS TAB -->
+    <div class="tab-content" id="tab-sellers">
+      <div class="search-box"><input type="text" placeholder="Search sellers..." oninput="filterList('sellers', this.value)"></div>
+      <div class="list" id="seller-list"></div>
+    </div>
+
+    <!-- MATCH TAB -->
+    <div class="tab-content" id="tab-match">
+      <div class="match-header">Select a seller to see nearby buyers</div>
+      <div id="match-content" class="list">
+        <div class="empty-state">Click any seller pin on the map<br>or select from the Sellers tab</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stat-bar">
+  <div class="stat">Buyers: <span id="s-buyers">52</span></div>
+  <div class="stat">Sellers: <span id="s-sellers">7</span></div>
+  <div class="stat">LOI Signed: <span id="s-loi">3</span></div>
+  <div class="stat">Pre-LOI: <span id="s-preloi">4</span></div>
+  <div class="stat" id="s-selected" style="color:#a0998f"></div>
+</div>
+
+<script>
+const BUYERS = [
+  {name:"Rafi Benzaquen",city:"Miami",state:"FL",lat:25.7617,lng:-80.1918,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$100k–$150k",targetBook:"2M–10M",language:"English",dealType:"Retail only",ownership:"Nathan"},
+  {name:"Chris Roberson",city:"Gainesville",state:"FL",lat:29.6516,lng:-82.3248,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL only",capital:"$50K–$100K",targetBook:"2M–3M",language:"English",dealType:"Retail / Virtual",ownership:"Steve"},
+  {name:"James Hankin",city:"Pensacola",state:"FL",lat:30.4213,lng:-87.2169,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$50K–$100K",targetBook:"",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Kyle Stepien",city:"Florida (All)",state:"FL",lat:27.9944,lng:-81.7603,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL more",capital:"$50k–$100k",targetBook:"1–5M",language:"English",dealType:"Retail / Virtual",ownership:"Suniti"},
+  {name:"Mark Hoffman",city:"Lauderdale Lakes",state:"FL",lat:26.1659,lng:-80.2106,type:"Buyer",subtype:"Highly Motivated Buyer",book:"CL more",capital:"$100k–$150k",targetBook:"4M–10M",language:"English",dealType:"Retail only",ownership:"Nathan"},
+  {name:"MK Bolling",city:"Florida (All)",state:"FL",lat:28.2,lng:-82.1,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$100k–$150k",targetBook:"1M–3M",language:"English",dealType:"Retail / Virtual",ownership:"Jill"},
+  {name:"Paul Agostino",city:"Palm Beach",state:"FL",lat:26.7056,lng:-80.0364,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$50K–$100K",targetBook:"1M–5M",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Paul Mack",city:"Boca Raton",state:"FL",lat:26.3683,lng:-80.1289,type:"Buyer",subtype:"Highly Motivated Buyer",book:"CL more",capital:"$100k–$150k",targetBook:"8M+",language:"English",dealType:"Retail only",ownership:"Nathan"},
+  {name:"Ryan Gomez",city:"Lauderdale Lakes",state:"FL",lat:26.17,lng:-80.22,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL more",capital:"$500k–$1M",targetBook:"Under 3M",language:"Spanish more",dealType:"Retail / Virtual",ownership:"Steve"},
+  {name:"Scott Schoettlin",city:"Tampa",state:"FL",lat:27.9506,lng:-82.4572,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$100k–$150k",targetBook:"",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Sharon Nunes",city:"Palm Beach",state:"FL",lat:26.72,lng:-80.05,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$100k–$150k",targetBook:"",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Terry Roker",city:"Fort Lauderdale",state:"FL",lat:26.1224,lng:-80.1373,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL only",capital:"$100k–$150k",targetBook:"500k–1M",language:"English",dealType:"Retail / Virtual",ownership:"Jill"},
+  {name:"Zena Wahab",city:"Miami",state:"FL",lat:25.775,lng:-80.21,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL or CL",capital:"$100k–$150k",targetBook:"1M–5M",language:"English",dealType:"Retail / Virtual",ownership:"Steve"},
+  {name:"Matt Iuculano",city:"Tampa",state:"FL",lat:27.96,lng:-82.47,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$100k–$150k",targetBook:"2M–10M",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Michael Mayer",city:"Saint Augustine",state:"FL",lat:29.8947,lng:-81.3145,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL and CL",capital:"$250k–$500k",targetBook:"",language:"English",dealType:"",ownership:"Nathan"},
+  {name:"Matt Pruitt",city:"Panama City",state:"FL",lat:30.1588,lng:-85.6602,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL or CL",capital:"$3Mil+",targetBook:"2 Mil+",language:"English",dealType:"Retail / Virtual",ownership:"Nathan"},
+  {name:"Ken Clark",city:"Orlando",state:"FL",lat:28.54,lng:-81.38,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL or CL",capital:"$1Mil–$3Mil",targetBook:"3M–10M",language:"English",dealType:"Retail / Virtual",ownership:"Steve"},
+  {name:"Alex Parra",city:"Lake Mary",state:"FL",lat:28.7589,lng:-81.3178,type:"Buyer",subtype:"Highly Motivated Buyer",book:"",capital:"$100k–$150k",targetBook:"",language:"",dealType:"",ownership:"Nathan"},
+  {name:"Amir Kazemi",city:"Florida (All)",state:"FL",lat:28.5,lng:-81.8,type:"Buyer",subtype:"Highly Motivated Buyer",book:"PL more",capital:"$250k–$500k",targetBook:"5M–10M",language:"English",dealType:"Retail only",ownership:"Steve"},
+  {name:"Angela C. Duncan",city:"Boca Raton",state:"FL",lat:26.375,lng:-80.12,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"No",targetBook:"",language:"",dealType:"",ownership:"Nathan"},
+  {name:"Lawrence Golden",city:"Wesley Chapel",state:"FL",lat:28.244,lng:-82.327,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Steve"},
+  {name:"Nic Schwarz",city:"Bonita Springs",state:"FL",lat:26.3398,lng:-81.7787,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Nathan"},
+  {name:"Heidi Brown & Cristine Feagle",city:"Callahan",state:"FL",lat:30.5605,lng:-81.8337,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Doug"},
+  {name:"Ricardo Prieto",city:"Orlando",state:"FL",lat:28.545,lng:-81.37,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Doug"},
+  {name:"Dania Garcia",city:"Miami",state:"FL",lat:25.785,lng:-80.195,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Retail agency",targetBook:"",language:"",dealType:"",ownership:"Steve"},
+  {name:"Angel J Velazquez",city:"Bradenton",state:"FL",lat:27.4989,lng:-82.5748,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"No",targetBook:"",language:"",dealType:"",ownership:"Steve"},
+  {name:"Germain Acevedo",city:"Davenport",state:"FL",lat:28.1617,lng:-81.6015,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Self service",targetBook:"",language:"",dealType:"",ownership:"Jill"},
+  {name:"James M Hankins",city:"Pensacola",state:"FL",lat:30.43,lng:-87.23,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Nathan"},
+  {name:"Mustafa Asaad",city:"Boca Raton",state:"FL",lat:26.365,lng:-80.135,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Retail agency",targetBook:"",language:"",dealType:"",ownership:"Steve"},
+  {name:"William Ramos Da Silva",city:"Orlando",state:"FL",lat:28.52,lng:-81.4,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"No",targetBook:"",language:"",dealType:"",ownership:"Jill"},
+  {name:"Roxane Hodgkins",city:"Fort Myers",state:"FL",lat:26.6406,lng:-81.8723,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Suniti"},
+  {name:"Fernando E. Munoz",city:"Edgewater",state:"FL",lat:28.9917,lng:-80.8986,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Jill"},
+  {name:"Christian Miranda",city:"Miami",state:"FL",lat:25.795,lng:-80.2,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Suniti"},
+  {name:"Cossette Sanchez",city:"Ocala",state:"FL",lat:29.1872,lng:-82.1401,type:"Buyer",subtype:"Existing Franchisee",book:"PL and CL",capital:"Yes",targetBook:"",language:"",dealType:"",ownership:"Suniti"},
+  {name:"Christian Miranda",city:"Miami",state:"FL",lat:25.77,lng:-80.185,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Patty Iglesias",city:"Miami",state:"FL",lat:25.76,lng:-80.21,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Thao Truong",city:"Pinellas Park",state:"FL",lat:27.8428,lng:-82.6996,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Ricky Prieto",city:"Orlando",state:"FL",lat:28.535,lng:-81.36,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Heidi Brown",city:"Jacksonville",state:"FL",lat:30.3322,lng:-81.6557,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Martin Rubin",city:"Doral",state:"FL",lat:25.8197,lng:-80.3503,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Paul Santos",city:"Palm Coast",state:"FL",lat:29.5844,lng:-81.2078,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Tracy Milner",city:"Maitland",state:"FL",lat:28.6278,lng:-81.3631,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Cossette Sanchez",city:"Homestead",state:"FL",lat:25.4687,lng:-80.4776,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Evelyn Narvaez",city:"Fort Myers",state:"FL",lat:26.65,lng:-81.88,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Sandro Chavannes",city:"Miami",state:"FL",lat:25.755,lng:-80.225,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Jean Etienne",city:"Margate",state:"FL",lat:26.2445,lng:-80.2062,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Janine Barsanti",city:"Port St. Lucie",state:"FL",lat:27.2731,lng:-80.3539,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Deandre Wakefield",city:"Clermont",state:"FL",lat:28.5494,lng:-81.7729,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Lila Gonzalez",city:"Doral",state:"FL",lat:25.825,lng:-80.355,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Alex Garcia",city:"Doral",state:"FL",lat:25.815,lng:-80.345,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Michael Kisilevich",city:"Coral Springs",state:"FL",lat:26.2707,lng:-80.2706,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+  {name:"Alec Musa",city:"Boca Raton",state:"FL",lat:26.358,lng:-80.083,type:"Buyer",subtype:"Platform Agency",book:"",capital:"",targetBook:"",language:"",dealType:"",ownership:""},
+];
+
+const SELLERS = [
+  {name:"Clearwater Book",city:"Clearwater",state:"FL",lat:27.9659,lng:-82.8001,type:"Seller",stage:"LOI Signed",bookSize:"2.5M + $800K",revenue:"~$470K",askingPrice:"2.1X ($1M)",plCl:"98% Auto, 2% HO (non-standard)",employees:"Main: 2 CSR + Owner; Satellite: 1 producer",limitations:""},
+  {name:"Reshma Ohri",city:"Orlando",state:"FL",lat:28.5383,lng:-81.3792,type:"Seller",stage:"LOI Signed",bookSize:"1.2M",revenue:"$120K",askingPrice:"1.88X ($225K)",plCl:"800 Auto, 150 HO, 200 Commercial; 25% Non-std",employees:"3 total incl. seller",limitations:""},
+  {name:"Frank Lazzara",city:"West Palm Beach",state:"FL",lat:26.7153,lng:-80.0534,type:"Seller",stage:"LOI Signed",bookSize:"12M",revenue:"$1.2M",askingPrice:"3X",plCl:"40% HO, 30% Auto, 30% Commercial",employees:"Lake Worth: 1 agency mgr, 2 CSRs",limitations:""},
+  {name:"Gustavo Villeta",city:"Orlando",state:"FL",lat:28.555,lng:-81.365,type:"Seller",stage:"Pre LOI",bookSize:"7.5M",revenue:"~$750K + contingency",askingPrice:"~3X",plCl:"~88% PL / 12% CL",employees:"2 owners + ~6 staff; key commercial agent",limitations:""},
+  {name:"Alfredo Martin",city:"Miami",state:"FL",lat:25.808,lng:-80.2,type:"Seller",stage:"Pre LOI",bookSize:"2M",revenue:"$240K",askingPrice:"1.6X to 2.0X",plCl:"$80K HO, $120K Progressive, $12K Comm Auto",employees:"1 producer (owner-operated)",limitations:"Owner prefers spread payment; quick transparent transition"},
+  {name:"Jaime Louisdhon",city:"Sunrise",state:"FL",lat:26.1667,lng:-80.2997,type:"Seller",stage:"Pre LOI",bookSize:"1.5M",revenue:"$160K",askingPrice:"1.2X",plCl:"65% PL / 35% CL Auto; 50% Non-std",employees:"",limitations:""},
+  {name:"William 'Bill' Coates",city:"Cocoa",state:"FL",lat:28.386,lng:-80.7401,type:"Seller",stage:"Pre LOI",bookSize:"7–8M",revenue:"~$2M; >$1M profit",askingPrice:"NA",plCl:"100% Specialty – Marine & Aviation",employees:"Owner (76) + 2 PT + 6-7 international staff",limitations:"Specialized – Marine & Aviation"},
+];
+
+const typeColors = {
+  "Highly Motivated Buyer": {fill:"#1a6b4a", light:"#d4f0e3"},
+  "Existing Franchisee": {fill:"#1e4d8c", light:"#d6e7fb"},
+  "Platform Agency": {fill:"#7a3e9c", light:"#ecdff7"},
+  "LOI Signed": {fill:"#c0392b", light:"#fde8e6"},
+  "Pre LOI": {fill:"#d97706", light:"#fef3c7"},
+};
+
+let activeFilters = new Set();
+let activeListFilter = {buyers: 'all', sellers: 'all'};
+let selectedSeller = null;
+let markers = [];
+let map;
+
+function initMap() {
+  map = L.map('map', {zoomControl: true}).setView([27.8, -82.0], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+  }).addTo(map);
+
+  // Plot buyers
+  BUYERS.forEach((b, i) => {
+    const c = typeColors[b.subtype];
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:10px;height:10px;border-radius:50%;background:${c.fill};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)" data-id="b${i}"></div>`,
+      iconSize: [10, 10], iconAnchor: [5, 5]
+    });
+    const m = L.marker([b.lat, b.lng], {icon}).addTo(map);
+    m.on('click', () => showDetail(b, 'buyer'));
+    markers.push({marker: m, data: b, kind: 'buyer', idx: i});
+  });
+
+  // Plot sellers (star-like shape)
+  SELLERS.forEach((s, i) => {
+    const c = typeColors[s.stage] || {fill:'#888'};
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;border-radius:3px;transform:rotate(45deg);background:${c.fill};border:2px solid white;box-shadow:0 1px 6px rgba(0,0,0,0.35)" data-id="s${i}"></div>`,
+      iconSize: [16, 16], iconAnchor: [8, 8]
+    });
+    const m = L.marker([s.lat, s.lng], {icon}).addTo(map);
+    m.on('click', () => { showDetail(s, 'seller'); selectSeller(s); });
+    markers.push({marker: m, data: s, kind: 'seller', idx: i});
+  });
+}
+
+function showDetail(item, kind) {
+  const panel = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+  panel.style.display = 'block';
+
+  if (kind === 'buyer') {
+    const c = typeColors[item.subtype];
+    content.innerHTML = `
+      <h3>${item.name}</h3>
+      <div class="sub">${item.city}, ${item.state}</div>
+      <span class="tag" style="background:${c.light};color:${c.fill};margin-top:6px;display:inline-block">${item.subtype}</span>
+      <hr class="divider">
+      ${item.book ? `<div class="detail-row"><span class="detail-label">Book interest</span><span class="detail-value">${item.book}</span></div>` : ''}
+      ${item.capital ? `<div class="detail-row"><span class="detail-label">Capital</span><span class="detail-value">${item.capital}</span></div>` : ''}
+      ${item.targetBook ? `<div class="detail-row"><span class="detail-label">Target size</span><span class="detail-value">${item.targetBook}</span></div>` : ''}
+      ${item.language ? `<div class="detail-row"><span class="detail-label">Language</span><span class="detail-value">${item.language}</span></div>` : ''}
+      ${item.dealType ? `<div class="detail-row"><span class="detail-label">Deal type</span><span class="detail-value">${item.dealType}</span></div>` : ''}
+      ${item.ownership ? `<div class="detail-row"><span class="detail-label">BDM</span><span class="detail-value">${item.ownership}</span></div>` : ''}
+    `;
+  } else {
+    const c = typeColors[item.stage] || {fill:'#888', light:'#eee'};
+    content.innerHTML = `
+      <h3>${item.name}</h3>
+      <div class="sub">${item.city}, ${item.state}</div>
+      <span class="tag" style="background:${c.light};color:${c.fill};margin-top:6px;display:inline-block">${item.stage}</span>
+      <hr class="divider">
+      <div class="detail-row"><span class="detail-label">Book size</span><span class="detail-value">${item.bookSize}</span></div>
+      <div class="detail-row"><span class="detail-label">Revenue</span><span class="detail-value">${item.revenue}</span></div>
+      <div class="detail-row"><span class="detail-label">Asking price</span><span class="detail-value">${item.askingPrice || 'TBD'}</span></div>
+      <div class="detail-row"><span class="detail-label">PL / CL</span><span class="detail-value">${item.plCl}</span></div>
+      ${item.employees ? `<div class="detail-row"><span class="detail-label">Staff</span><span class="detail-value">${item.employees}</span></div>` : ''}
+      ${item.limitations ? `<div class="detail-row"><span class="detail-label">Notes</span><span class="detail-value">${item.limitations}</span></div>` : ''}
+      <hr class="divider">
+      <button onclick="selectSeller(SELLERS.find(s=>s.name==='${item.name.replace(/'/g,"\\'")}'));switchTab('match',document.querySelectorAll('.tab-btn')[2])" style="font-size:12px;padding:6px 12px;border:1px solid #ccc;border-radius:5px;cursor:pointer;background:#f5f3ef;width:100%;font-family:'DM Sans',sans-serif">View nearby buyers →</button>
+    `;
+    document.getElementById('s-selected').textContent = `Selected: ${item.name}`;
+  }
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('s-selected').textContent = '';
+}
+
+function selectSeller(seller) {
+  selectedSeller = seller;
+  renderMatchPanel(seller);
+}
+
+function dist(a, b) {
+  const R = 69; // miles per degree lat
+  const dlat = (a.lat - b.lat) * R;
+  const dlng = (a.lng - b.lng) * R * Math.cos(a.lat * Math.PI / 180);
+  return Math.sqrt(dlat*dlat + dlng*dlng);
+}
+
+function renderMatchPanel(seller) {
+  const mc = document.getElementById('match-content');
+  const nearby = BUYERS.map(b => ({...b, distance: dist(seller, b)}))
+    .sort((a,b) => a.distance - b.distance)
+    .slice(0, 20);
+
+  mc.innerHTML = `<div class="match-section-title">Seller: ${seller.name} — ${seller.city}</div>` +
+    nearby.map(b => {
+      const c = typeColors[b.subtype];
+      const miles = Math.round(b.distance);
+      return `<div class="list-item" onclick="showDetail(BUYERS.find(x=>x.name==='${b.name.replace(/'/g,"\\'")}'),'buyer');map.panTo([${b.lat},${b.lng}])">
+        <div class="name">${b.name}</div>
+        <div class="city">${b.city} · ${miles} mi away</div>
+        <div class="tags">
+          <span class="tag" style="background:${c.light};color:${c.fill}">${b.subtype}</span>
+          ${b.book ? `<span class="tag" style="background:#f0ede8;color:#555">${b.book}</span>` : ''}
+          ${b.capital ? `<span class="tag" style="background:#f0ede8;color:#555">${b.capital}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+function renderList(kind) {
+  const items = kind === 'buyers' ? BUYERS : SELLERS;
+  const listEl = document.getElementById(`${kind === 'buyers' ? 'buyer' : 'seller'}-list`);
+  const search = document.querySelector(`#tab-${kind} input`)?.value?.toLowerCase() || '';
+  const typeF = activeListFilter[kind];
+
+  const filtered = items.filter(item => {
+    const matchSearch = item.name.toLowerCase().includes(search) || item.city.toLowerCase().includes(search);
+    const matchType = typeF === 'all' || (kind === 'buyers' && item.subtype === typeF) || (kind === 'sellers' && item.stage === typeF);
+    return matchSearch && matchType;
+  });
+
+  if (kind === 'buyers') {
+    listEl.innerHTML = filtered.map(b => {
+      const c = typeColors[b.subtype];
+      return `<div class="list-item" onclick="showDetail(BUYERS.find(x=>x.name==='${b.name.replace(/'/g,"\\'")}'),'buyer');map.panTo([${b.lat},${b.lng}])">
+        <div class="name">${b.name}</div>
+        <div class="city">${b.city}, ${b.state}</div>
+        <div class="tags">
+          <span class="tag" style="background:${c.light};color:${c.fill}">${b.subtype}</span>
+          ${b.book ? `<span class="tag" style="background:#f0ede8;color:#666">${b.book}</span>` : ''}
+          ${b.capital ? `<span class="tag" style="background:#f0ede8;color:#666">${b.capital}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty-state">No results found</div>';
+  } else {
+    listEl.innerHTML = filtered.map(s => {
+      const c = typeColors[s.stage] || {fill:'#888', light:'#eee'};
+      return `<div class="list-item" onclick="showDetail(SELLERS.find(x=>x.name==='${s.name.replace(/'/g,"\\'")}'),'seller');selectSeller(SELLERS.find(x=>x.name==='${s.name.replace(/'/g,"\\'")}'));map.panTo([${s.lat},${s.lng}])">
+        <div class="name">${s.name}</div>
+        <div class="city">${s.city}, ${s.state}</div>
+        <div class="tags">
+          <span class="tag" style="background:${c.light};color:${c.fill}">${s.stage}</span>
+          <span class="tag" style="background:#f0ede8;color:#666">${s.bookSize}</span>
+          <span class="tag" style="background:#f0ede8;color:#666">${s.askingPrice||'TBD'}</span>
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty-state">No results found</div>';
+  }
+}
+
+function filterList(kind, val) { renderList(kind); }
+function filterByType(kind, type, el) {
+  document.querySelectorAll(`#tab-${kind} .filter-chip`).forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  activeListFilter[kind] = type;
+  renderList(kind);
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  if (name === 'match' && selectedSeller) renderMatchPanel(selectedSeller);
+}
+
+function toggleFilter(el) {
+  const f = el.dataset.filter;
+  if (activeFilters.has(f)) { activeFilters.delete(f); el.classList.remove('muted'); }
+  else { activeFilters.add(f); el.classList.add('muted'); }
+  markers.forEach(({marker, data}) => {
+    const key = data.type === 'Buyer' ? data.subtype : data.stage;
+    if (activeFilters.has(key)) marker.setOpacity(0);
+    else marker.setOpacity(1);
+  });
+}
+
+window.onload = () => {
+  initMap();
+  renderList('buyers');
+  renderList('sellers');
+
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 200);
+};
+</script>
+</body>
+</html>
