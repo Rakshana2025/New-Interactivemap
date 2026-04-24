@@ -402,6 +402,47 @@ async function loadData() {
     console.error('M&A Map fetch error:', err);
   }
 }
+ 
+// ─────────────────────────────────────────────
+//  POPUP
+// ─────────────────────────────────────────────
+ function openPopupAtLocation(item, kind) {
+  if (!item.lat || !item.lng) return;
+
+  const row = (label, value) => value
+    ? `<div style="display:flex;gap:6px;margin-bottom:4px;font-size:12px">
+         <b style="min-width:90px">${label}</b>
+         <span>${value}</span>
+       </div>`
+    : '';
+
+  let html = '';
+
+  if (kind === 'buyer') {
+    html = `
+      <b>${item.name}</b><br>
+      <small>${item.city || ''}</small><hr>
+      ${row('Type', item.subtype)}
+      ${row('Book', item.book)}
+      ${row('Capital', item.capital)}
+    `;
+  } else {
+    html = `
+      <b>${item.name}</b><br>
+      <small>${item.city || ''}</small><hr>
+      ${row('Stage', item.stage)}
+      ${row('Book Size', item.bookSize)}
+      ${row('Revenue', item.revenue)}
+    `;
+  }
+
+  L.popup({
+    offset: [0, -10]
+  })
+  .setLatLng([item.lat, item.lng])
+  .setContent(html)
+  .openOn(map);
+}
 
 // ─────────────────────────────────────────────
 //  MARKERS
