@@ -450,28 +450,49 @@ async function loadData() {
 function plotMarkers() {
   BUYERS.forEach((b, i) => {
     if (!b.lat || !b.lng) return;
-    const c = typeColors[b.subtype] || {fill:'#888', light:'#eee'};
+
+    const c = typeColors[b.subtype] || { fill: '#888', light: '#eee' };
+
     const icon = L.divIcon({
       className: '',
       html: `<div style="width:10px;height:10px;border-radius:50%;background:${c.fill};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
-      iconSize: [10,10], iconAnchor: [5,5]
+      iconSize: [10, 10],
+      iconAnchor: [5, 5]
     });
-    const m = L.marker([b.lat, b.lng], {icon}).addTo(map);
-    m.on('click', () => showDetail(b, 'buyer'));
-    markers.push({marker: m, data: b, kind: 'buyer', idx: i});
+
+    const m = L.marker([b.lat, b.lng], { icon }).addTo(map);
+
+    m.on('click', () => {
+      map.flyTo([b.lat, b.lng], 9);
+      openPopupAtLocation(b, 'buyer');
+      showDetail(b, 'buyer'); // keeps side panel
+    });
+
+    markers.push({ marker: m, data: b, kind: 'buyer', idx: i });
   });
 
   SELLERS.forEach((s, i) => {
     if (!s.lat || !s.lng) return;
-    const c = typeColors[s.stage] || {fill:'#888'};
+
+    const c = typeColors[s.stage] || { fill: '#888' };
+
     const icon = L.divIcon({
       className: '',
       html: `<div style="width:16px;height:16px;border-radius:3px;transform:rotate(45deg);background:${c.fill};border:2px solid white;box-shadow:0 1px 6px rgba(0,0,0,0.35)"></div>`,
-      iconSize: [16,16], iconAnchor: [8,8]
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
     });
-    const m = L.marker([s.lat, s.lng], {icon}).addTo(map);
-    m.on('click', () => { showDetail(s, 'seller'); selectSeller(s); });
-    markers.push({marker: m, data: s, kind: 'seller', idx: i});
+
+    const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+
+    m.on('click', () => {
+      map.flyTo([s.lat, s.lng], 9);
+      openPopupAtLocation(s, 'seller');
+      showDetail(s, 'seller'); // keeps side panel
+      selectSeller(s);         // keeps match logic
+    });
+
+    markers.push({ marker: m, data: s, kind: 'seller', idx: i });
   });
 }
 
@@ -631,7 +652,7 @@ function renderList(kind) {
     listEl.innerHTML = filtered.map(b => {
       const c = typeColors[b.subtype] || {fill:'#555', light:'#eee'};
       const safeNameJs = b.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="showDetail(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');${b.lat?`map.panTo([${b.lat},${b.lng}])`:''}">
+      return `<div class="list-item" onclick="onclick="openPopupAtLocation(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');showDetail(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');${b.lat?`map.flyTo([${b.lat},${b.lng}],9)`:''}">
         <div class="name">${b.name}</div>
         <div class="city">${[b.city, b.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
@@ -645,7 +666,7 @@ function renderList(kind) {
     listEl.innerHTML = filtered.map(s => {
       const c = typeColors[s.stage] || {fill:'#888', light:'#eee'};
       const safeNameJs = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="showDetail(SELLERS.find(x=>x.name==='${safeNameJs}'),'seller');selectSeller(SELLERS.find(x=>x.name==='${safeNameJs}'));${s.lat?`map.panTo([${s.lat},${s.lng}])`:''}">
+      return `<div class="list-item" onclick="onclick="openPopupAtLocation(SELLERS.find(x=>x.name==='${safeNameJs}'),'seller');showDetail(SELLERS.find(x=>x.name==='${safeNameJs}'),'seller');selectSeller(SELLERS.find(x=>x.name==='${safeNameJs}'));${s.lat?`map.flyTo([${s.lat},${s.lng}],9)`:''}">
         <div class="name">${s.name}</div>
         <div class="city">${[s.city, s.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
