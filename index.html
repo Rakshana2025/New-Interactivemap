@@ -661,56 +661,54 @@ function renderList(kind) {
   const search = (document.querySelector(`#tab-${kind} input`)?.value || '').toLowerCase();
   const typeF  = activeListFilter[kind];
 
-  const filtered = items.filter(item => {
-    const matchSearch = item.name.toLowerCase().includes(search) || item.city.toLowerCase().includes(search);
-    const matchType   = typeF === 'all'
-      || (kind === 'buyers'  && item.subtype === typeF)
-      || (kind === 'sellers' && item.stage   === typeF);
-    return matchSearch && matchType;
-  });
+  const filtered = items
+    .map((item, index) => ({ item, index })) // preserve original index
+    .filter(({ item }) => {
+      const matchSearch = item.name.toLowerCase().includes(search) || item.city.toLowerCase().includes(search);
+      const matchType   = typeF === 'all'
+        || (kind === 'buyers'  && item.subtype === typeF)
+        || (kind === 'sellers' && item.stage   === typeF);
+      return matchSearch && matchType;
+    });
 
   if (kind === 'buyers') {
-    listEl.innerHTML = filtered.map(b => {
-      const c = typeColors[b.subtype] || { fill:'#555', light:'#eee' };
+    listEl.innerHTML =
+      filtered.map(({ item, index }) => {
+        const c = typeColors[item.subtype] || { fill:'#555', light:'#eee' };
 
-      return `<div class="list-item"
-        data-kind="buyer"
-        data-lat="${b.lat}"
-        data-lng="${b.lng}"
-        data-index="${BUYERS.indexOf(b)}">
+        return `<div class="list-item"
+          data-kind="buyer"
+          data-index="${index}">
 
-        <div class="name">${b.name}</div>
-        <div class="city">${[b.city, b.state].filter(Boolean).join(', ')}</div>
-        <div class="tags">
-          <span class="tag" style="background:${c.light};color:${c.fill}">${b.subtype}</span>
-          ${b.book    ? `<span class="tag" style="background:#f0ede8;color:#666">${b.book}</span>`    : ''}
-          ${b.capital ? `<span class="tag" style="background:#f0ede8;color:#666">${b.capital}</span>` : ''}
-        </div>
-      </div>`;
-    }).join('') || '<div class="empty-state">No results found</div>';
+          <div class="name">${item.name}</div>
+          <div class="city">${[item.city, item.state].filter(Boolean).join(', ')}</div>
+          <div class="tags">
+            <span class="tag" style="background:${c.light};color:${c.fill}">${item.subtype}</span>
+            ${item.book    ? `<span class="tag">${item.book}</span>` : ''}
+            ${item.capital ? `<span class="tag">${item.capital}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('') || '<div class="empty-state">No results found</div>';
 
   } else {
-    listEl.innerHTML = filtered.map(s => {
-      const c = typeColors[s.stage] || { fill:'#888', light:'#eee' };
+    listEl.innerHTML =
+      filtered.map(({ item, index }) => {
+        const c = typeColors[item.stage] || { fill:'#888', light:'#eee' };
 
-      return `<div class="list-item"
-        data-kind="seller"
-        data-lat="${s.lat}"
-        data-lng="${s.lng}"
-        data-index="${SELLERS.indexOf(s)}">
+        return `<div class="list-item"
+          data-kind="seller"
+          data-index="${index}">
 
-        <div class="name">${s.name}</div>
-        <div class="city">${[s.city, s.state].filter(Boolean).join(', ')}</div>
-        <div class="tags">
-          <span class="tag" style="background:${c.light};color:${c.fill}">${s.stage}</span>
-          ${s.bookSize    ? `<span class="tag" style="background:#f0ede8;color:#666">${s.bookSize}</span>`    : ''}
-          ${s.askingPrice ? `<span class="tag" style="background:#f0ede8;color:#666">${s.askingPrice}</span>` : ''}
-        </div>
-      </div>`;
-    }).join('') || '<div class="empty-state">No results found</div>';
+          <div class="name">${item.name}</div>
+          <div class="city">${[item.city, item.state].filter(Boolean).join(', ')}</div>
+          <div class="tags">
+            <span class="tag" style="background:${c.light};color:${c.fill}">${item.stage}</span>
+          </div>
+        </div>`;
+      }).join('') || '<div class="empty-state">No results found</div>';
   }
 
-  attachListEvents();
+  attachListEvents(); 
 }
 // ─────────────────────────────────────────────
 //  Event handler
@@ -721,21 +719,17 @@ function renderList(kind) {
       const kind  = el.dataset.kind;
       const index = parseInt(el.dataset.index);
 
-      let item = kind === 'buyer' ? BUYERS[index] : SELLERS[index];
+      const item = kind === 'buyer' ? BUYERS[index] : SELLERS[index];
 
       if (!item || !item.lat) return;
 
-      // 🔥 Core behavior you want
       map.flyTo([item.lat, item.lng], 9);
-      openPopupAtLocation(item, kind);
 
-      // Optional extras (keep if you want panel + match)
-      showDetail(item, kind);
+      setTimeout(() => {
+        openPopupAtLocation(item, kind);
+      }, 300);
+
       if (kind === 'seller') selectSeller(item);
-
-      // Highlight selected row
-      document.querySelectorAll('.list-item').forEach(i => i.classList.remove('selected'));
-      el.classList.add('selected');
     };
   });
 }
