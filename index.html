@@ -233,6 +233,12 @@
     <!-- SELLERS TAB -->
     <div class="tab-content" id="tab-sellers">
       <div class="search-box"><input type="text" placeholder="Search sellers…" oninput="filterList('sellers', this.value)"></div>
+      <div class="filter-bar">
+        <div class="filter-chip active" data-kind="sellers" data-type="all">All</div>
+        <div class="filter-chip" data-kind="sellers" data-type="LOI Signed">LOI Signed</div>
+        <div class="filter-chip" data-kind="sellers" data-type="Pre LOI">Pre LOI</div>
+        
+      </div>
       <div class="list" id="seller-list"><div class="empty-state">Loading…</div></div>
     </div>
 
