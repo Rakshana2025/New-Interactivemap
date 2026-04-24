@@ -664,10 +664,12 @@ function renderList(kind) {
   });
 
   if (kind === 'buyers') {
-    listEl.innerHTML = filtered.map(b => {
+    listEl.innerHTML = filtered.map((b) => {
       const c = typeColors[b.subtype] || {fill:'#555', light:'#eee'};
-      const safeNameJs = b.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="onclick="onclick="openPopupAtLocation(BUYERS[${i}], 'buyer'); showDetail(BUYERS[${i}], 'buyer'); map.flyTo([${b.lat}, ${b.lng}], 9)"">
+
+      return `<div class="list-item"
+        onclick="openPopupAtLocation(${JSON.stringify(b).replace(/"/g, '&quot;')}, 'buyer'); showDetail(${JSON.stringify(b).replace(/"/g, '&quot;')}, 'buyer'); map.flyTo([${b.lat}, ${b.lng}], 9)">
+        
         <div class="name">${b.name}</div>
         <div class="city">${[b.city, b.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
@@ -677,11 +679,14 @@ function renderList(kind) {
         </div>
       </div>`;
     }).join('') || '<div class="empty-state">No results found</div>';
+
   } else {
-    listEl.innerHTML = filtered.map(s => {
+    listEl.innerHTML = filtered.map((s) => {
       const c = typeColors[s.stage] || {fill:'#888', light:'#eee'};
-      const safeNameJs = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="onclick="onclick="openPopupAtLocation(SELLERS[${i}], 'seller'); showDetail(SELLERS[${i}], 'seller'); selectSeller(SELLERS[${i}]); map.flyTo([${s.lat}, ${s.lng}], 9)"">
+
+      return `<div class="list-item"
+        onclick="openPopupAtLocation(${JSON.stringify(s).replace(/"/g, '&quot;')}, 'seller'); showDetail(${JSON.stringify(s).replace(/"/g, '&quot;')}, 'seller'); selectSeller(${JSON.stringify(s).replace(/"/g, '&quot;')}); map.flyTo([${s.lat}, ${s.lng}], 9)">
+        
         <div class="name">${s.name}</div>
         <div class="city">${[s.city, s.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
@@ -693,16 +698,6 @@ function renderList(kind) {
     }).join('') || '<div class="empty-state">No results found</div>';
   }
 }
-
-function filterList(kind) { renderList(kind); }
-
-function filterByType(kind, type, el) {
-  document.querySelectorAll(`#tab-${kind} .filter-chip`).forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  activeListFilter[kind] = type;
-  renderList(kind);
-}
-
 // ─────────────────────────────────────────────
 //  TABS & LEGEND
 // ─────────────────────────────────────────────
