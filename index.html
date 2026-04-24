@@ -411,7 +411,7 @@ async function loadData() {
 
   const row = (label, value) => value
     ? `<div style="display:flex;gap:6px;margin-bottom:4px;font-size:12px">
-         <b style="min-width:90px">${label}</b>
+         <b style="min-width:100px">${label}</b>
          <span>${value}</span>
        </div>`
     : '';
@@ -421,29 +421,44 @@ async function loadData() {
   if (kind === 'buyer') {
     html = `
       <b>${item.name}</b><br>
-      <small>${item.city || ''}</small><hr>
+      <small>${[item.city, item.state].filter(Boolean).join(', ')}</small>
+      <hr>
+
       ${row('Type', item.subtype)}
-      ${row('Book', item.book)}
+      ${row('Book Interest', item.book)}
       ${row('Capital', item.capital)}
+      ${row('Target Size', item.targetBook)}
+      ${row('Language', item.language)}
+      ${row('Deal Type', item.dealType)}
+      ${row('BDM', item.ownership)}
     `;
   } else {
     html = `
       <b>${item.name}</b><br>
-      <small>${item.city || ''}</small><hr>
+      <small>${[item.city, item.state].filter(Boolean).join(', ')}</small>
+      <hr>
+
       ${row('Stage', item.stage)}
       ${row('Book Size', item.bookSize)}
       ${row('Revenue', item.revenue)}
+      ${row('Asking Price', item.askingPrice)}
+      ${row('Book Type', item.plCl)}
+      ${row('Employees', item.employees)}
+      ${row('Deal Type', item.dealType)}
+      ${row('BDM', item.ownership)}
+      ${row('Notes', item.limitations)}
     `;
   }
 
-  L.popup({
-    offset: [0, -10]
-  })
-  .setLatLng([item.lat, item.lng])
-  .setContent(html)
-  .openOn(map);
-}
+  if (window.currentPopup) {
+    map.closePopup(window.currentPopup);
+  }
 
+  window.currentPopup = L.popup({ offset: [0, -10] })
+    .setLatLng([item.lat, item.lng])
+    .setContent(html)
+    .openOn(map);
+}
 // ─────────────────────────────────────────────
 //  MARKERS
 // ─────────────────────────────────────────────
@@ -652,7 +667,7 @@ function renderList(kind) {
     listEl.innerHTML = filtered.map(b => {
       const c = typeColors[b.subtype] || {fill:'#555', light:'#eee'};
       const safeNameJs = b.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="onclick="openPopupAtLocation(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');showDetail(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');${b.lat?`map.flyTo([${b.lat},${b.lng}],9)`:''}">
+      return `<div class="list-item" onclick="onclick="onclick="openPopupAtLocation(BUYERS[${i}], 'buyer'); showDetail(BUYERS[${i}], 'buyer'); map.flyTo([${b.lat}, ${b.lng}], 9)"">
         <div class="name">${b.name}</div>
         <div class="city">${[b.city, b.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
@@ -666,7 +681,7 @@ function renderList(kind) {
     listEl.innerHTML = filtered.map(s => {
       const c = typeColors[s.stage] || {fill:'#888', light:'#eee'};
       const safeNameJs = s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="onclick="openPopupAtLocation(SELLERS.find(x=>x.name==='${safeNameJs}'),'seller');showDetail(SELLERS.find(x=>x.name==='${safeNameJs}'),'seller');selectSeller(SELLERS.find(x=>x.name==='${safeNameJs}'));${s.lat?`map.flyTo([${s.lat},${s.lng}],9)`:''}">
+      return `<div class="list-item" onclick="onclick="onclick="openPopupAtLocation(SELLERS[${i}], 'seller'); showDetail(SELLERS[${i}], 'seller'); selectSeller(SELLERS[${i}]); map.flyTo([${s.lat}, ${s.lng}], 9)"">
         <div class="name">${s.name}</div>
         <div class="city">${[s.city, s.state].filter(Boolean).join(', ')}</div>
         <div class="tags">
