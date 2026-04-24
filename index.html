@@ -222,10 +222,10 @@
     <div class="tab-content active" id="tab-buyers">
       <div class="search-box"><input type="text" placeholder="Search buyers…" oninput="filterList('buyers', this.value)"></div>
       <div class="filter-bar">
-        <div class="filter-chip active" data-type="all" onclick="filterByType('buyers','all',this)">All</div>
-        <div class="filter-chip" data-type="Highly Motivated Buyer" onclick="filterByType('buyers','Highly Motivated Buyer',this)">HM Buyer</div>
-        <div class="filter-chip" data-type="Existing Franchisee" onclick="filterByType('buyers','Existing Franchisee',this)">Franchisee</div>
-        <div class="filter-chip" data-type="Platform Agency" onclick="filterByType('buyers','Platform Agency',this)">Platform</div>
+        <div class="filter-chip active" data-kind="buyers" data-type="all">All</div>
+        <div class="filter-chip" data-kind="buyers" data-type="Highly Motivated Buyer">HM Buyer</div>
+        <div class="filter-chip" data-kind="buyers" data-type="Existing Franchisee">Franchisee</div>
+        <div class="filter-chip" data-kind="buyers" data-type="Platform Agency">Platform</div>
       </div>
       <div class="list" id="buyer-list"><div class="empty-state">Loading…</div></div>
     </div>
@@ -735,6 +735,29 @@ function renderList(kind) {
 }
  
 // ─────────────────────────────────────────────
+// Active filters
+// ─────────────────────────────────────────────
+ 
+ function attachFilterEvents() {
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.onclick = () => {
+      const kind = chip.dataset.kind;
+      const type = chip.dataset.type;
+
+      // remove active from all chips in same section
+      document.querySelectorAll(`.filter-chip[data-kind="${kind}"]`)
+        .forEach(c => c.classList.remove('active'));
+
+      chip.classList.add('active');
+
+      activeListFilter[kind] = type;
+
+      renderList(kind);
+    };
+  });
+}
+ 
+// ─────────────────────────────────────────────
 //  TABS & LEGEND
 // ─────────────────────────────────────────────
 function switchTab(name, btn) {
@@ -760,6 +783,7 @@ function toggleFilter(el) {
 // ─────────────────────────────────────────────
 window.onload = () => {
   initMap();
+  attachFilterEvents(); // 👈 ADD THIS
   loadData();
 };
 </script>
