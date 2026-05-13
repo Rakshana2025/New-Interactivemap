@@ -259,10 +259,11 @@
 <div class="stat-bar">
   <div class="stat">Buyers: <span id="s-buyers">—</span></div>
   <div class="stat">Sellers: <span id="s-sellers">—</span></div>
-  <div class="stat">LOI Signed: <span id="s-loi">—</span></div>
-  <div class="stat">Pre-LOI: <span id="s-preloi">—</span></div>
-  <div class="stat" id="s-selected" style="color:#a0998f"></div>
-  <div class="stat" id="s-updated" style="margin-left:auto;color:#555"></div>
+
+  <div class="stat" id="s-selected"
+       style="margin-left:auto;color:#fff">
+    Selected: None
+  </div>
 </div>
 
 <script>
@@ -303,16 +304,58 @@ function initMap() {
   }).addTo(map);
   buyerCluster = L.markerClusterGroup({
   spiderfyOnMaxZoom: true,
+  zoomToBoundsOnClick: false,
   showCoverageOnHover: false,
-  zoomToBoundsOnClick: true,
-  maxClusterRadius: 40
+  spiderfyOnEveryZoom: false,
+  removeOutsideVisibleBounds: false,
+  maxClusterRadius: 40,
+
+  iconCreateFunction: function(cluster) {
+    return L.divIcon({
+      html: `<div style="
+        background:#2563eb;
+        color:white;
+        width:34px;
+        height:34px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-weight:bold;
+        border:3px solid white;
+      ">${cluster.getChildCount()}</div>`,
+      className: '',
+      iconSize: [34, 34]
+    });
+  }
 });
 
 sellerCluster = L.markerClusterGroup({
   spiderfyOnMaxZoom: true,
+  zoomToBoundsOnClick: false,
   showCoverageOnHover: false,
-  zoomToBoundsOnClick: true,
-  maxClusterRadius: 40
+  spiderfyOnEveryZoom: false,
+  removeOutsideVisibleBounds: false,
+  maxClusterRadius: 40,
+
+  iconCreateFunction: function(cluster) {
+    return L.divIcon({
+      html: `<div style="
+        background:#16a34a;
+        color:white;
+        width:34px;
+        height:34px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-weight:bold;
+        border:3px solid white;
+      ">${cluster.getChildCount()}</div>`,
+      className: '',
+      iconSize: [34, 34]
+    });
+  }
 });
 
 map.addLayer(buyerCluster);
@@ -570,16 +613,19 @@ function hideError() {
 }
 
 function updateStats() {
-  const loi    = SELLERS.filter(s => s.stage === 'LOI Signed').length;
-  const preloi = SELLERS.filter(s => s.stage === 'Pre LOI').length;
-  document.getElementById('s-buyers').textContent  = BUYERS.length;
-  document.getElementById('s-sellers').textContent = SELLERS.length;
-  document.getElementById('s-loi').textContent     = loi;
-  document.getElementById('s-preloi').textContent  = preloi;
-  document.getElementById('count-buyers').textContent  = BUYERS.length;
-  document.getElementById('count-sellers').textContent = SELLERS.length;
-  const now = new Date();
-  document.getElementById('s-updated').textContent = `Updated ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+
+  // Count ALL buyer rows
+  const buyerCount = BUYERS.length;
+
+  // Count ALL seller rows
+  const sellerCount = SELLERS.length;
+
+  document.getElementById('s-buyers').textContent = buyerCount;
+  document.getElementById('s-sellers').textContent = sellerCount;
+
+  // Sidebar tab counts
+  document.getElementById('count-buyers').textContent = buyerCount;
+  document.getElementById('count-sellers').textContent = sellerCount;
 }
 
 function updateHeader() {
@@ -673,7 +719,16 @@ function renderMatchPanel(seller) {
       const c = typeColors[b.subtype] || {fill:'#555', light:'#eee'};
       const miles = Math.round(b.distance);
       const safeNameJs = b.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return `<div class="list-item" onclick="showDetail(BUYERS.find(x=>x.name==='${safeNameJs}'),'buyer');map.panTo([${b.lat},${b.lng}])">
+      return `<div class="list-item" onclick="
+  const buyer = BUYERS.find(x => x.name === '${safeNameJs}');
+
+  map.flyTo([${b.lat}, ${b.lng}], 9);
+
+  setTimeout(() => {
+    openPopupAtLocation(buyer, 'buyer');
+    showDetail(buyer, 'buyer');
+  }, 300);
+">
         <div class="name">${b.name}</div>
         <div class="city">${b.city} · ${miles} mi away</div>
         <div class="tags">
@@ -741,8 +796,10 @@ function renderList(kind) {
       }).join('') || '<div class="empty-state">No results found</div>';
   }
 
-  attachListEvents(); 
-}
+  function filterList(kind) {
+    renderList(kind);
+  }
+ 
 // ─────────────────────────────────────────────
 //  Event handler
 // ─────────────────────────────────────────────
@@ -803,11 +860,34 @@ function switchTab(name, btn) {
 
 function toggleFilter(el) {
   const f = el.dataset.filter;
-  if (activeFilters.has(f)) { activeFilters.delete(f); el.classList.remove('muted'); }
-  else { activeFilters.add(f); el.classList.add('muted'); }
-  markers.forEach(({marker, data}) => {
-    const key = data.type === 'Buyer' ? data.subtype : data.stage;
-    marker.setOpacity(activeFilters.has(key) ? 0 : 1);
+
+  if (activeFilters.has(f)) {
+    activeFilters.delete(f);
+    el.classList.remove('muted');
+  } else {
+    activeFilters.add(f);
+    el.classList.add('muted');
+  }
+
+  // Clear clusters
+  buyerCluster.clearLayers();
+  sellerCluster.clearLayers();
+
+  // Re-add only visible markers
+  markers.forEach(({ marker, data }) => {
+    const key = data.type === 'Buyer'
+      ? data.subtype
+      : data.stage;
+
+    const hidden = activeFilters.has(key);
+
+    if (!hidden) {
+      if (data.type === 'Buyer') {
+        buyerCluster.addLayer(marker);
+      } else {
+        sellerCluster.addLayer(marker);
+      }
+    }
   });
 }
 
