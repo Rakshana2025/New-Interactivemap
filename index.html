@@ -720,13 +720,10 @@ function renderMatchPanel(seller) {
       const miles = Math.round(b.distance);
       const safeNameJs = b.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       return `<div class="list-item" onclick="
-  const buyer = BUYERS.find(x => x.name === '${safeNameJs}');
-
   map.flyTo([${b.lat}, ${b.lng}], 9);
-
   setTimeout(() => {
-    openPopupAtLocation(buyer, 'buyer');
-    showDetail(buyer, 'buyer');
+    openPopupAtLocation(BUYERS[${BUYERS.indexOf(b)}], 'buyer');
+    showDetail(BUYERS[${BUYERS.indexOf(b)}], 'buyer');
   }, 300);
 ">
         <div class="name">${b.name}</div>
