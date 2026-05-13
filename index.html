@@ -7,6 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -286,6 +290,8 @@ let activeListFilter = {buyers: 'all', sellers: 'all'};
 let selectedSeller = null;
 let markers = [];
 let map;
+let buyerCluster;
+let sellerCluster;
 
 // ─────────────────────────────────────────────
 //  MAP INIT
@@ -295,7 +301,24 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors', maxZoom: 19
   }).addTo(map);
-  setTimeout(() => map.invalidateSize(), 200);
+  buyerCluster = L.markerClusterGroup({
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  zoomToBoundsOnClick: true,
+  maxClusterRadius: 40
+});
+
+sellerCluster = L.markerClusterGroup({
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  zoomToBoundsOnClick: true,
+  maxClusterRadius: 40
+});
+
+map.addLayer(buyerCluster);
+map.addLayer(sellerCluster);
+
+setTimeout(() => map.invalidateSize(), 200);
 }
 
 // ─────────────────────────────────────────────
@@ -392,7 +415,8 @@ async function loadData() {
     SELLERS = valid.filter(i =>  (i.type || '').toLowerCase().includes('sell')).map(transformItem);
 
     // Clear existing markers
-    markers.forEach(({marker}) => marker.remove());
+    buyerCluster.clearLayers();
+    sellerCluster.clearLayers();
     markers = [];
 
     plotMarkers();
@@ -476,12 +500,20 @@ function plotMarkers() {
 
     const icon = L.divIcon({
       className: '',
-      html: `<div style="width:10px;height:10px;border-radius:50%;background:${c.fill};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
-      iconSize: [10, 10],
-      iconAnchor: [5, 5]
+      html: `<div style="
+        width:16px;
+        height:16px;
+        border-radius:50%;
+        background:${c.fill};
+        border:3px solid white;
+        box-shadow:0 2px 6px rgba(0,0,0,0.35)
+      "></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8]
     });
 
-    const m = L.marker([b.lat, b.lng], { icon }).addTo(map);
+    const m = L.marker([b.lat, b.lng], { icon });
+    buyerCluster.addLayer(m);
 
     m.on('click', () => {
       map.flyTo([b.lat, b.lng], 9);
@@ -504,7 +536,8 @@ function plotMarkers() {
       iconAnchor: [8, 8]
     });
 
-    const m = L.marker([s.lat, s.lng], { icon }).addTo(map);
+    const m = L.marker([s.lat, s.lng], { icon });
+    sellerCluster.addLayer(m);
 
     m.on('click', () => {
       map.flyTo([s.lat, s.lng], 9);
